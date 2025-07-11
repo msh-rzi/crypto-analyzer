@@ -1,0 +1,454 @@
+import { Injectable, BadRequestException, ForbiddenException } from '@nestjs/common';
+import { PrismaService } from './prisma.service';
+import { QueryOptions, QueryResult, SingleResult, PrismaModel, FieldWhitelist, SoftDeleteConfig, OrderByOption, BulkCreateOptions, CountResult, PrismaOperators } from './query.types';
+
+@Injectable()
+export class QueryService {
+  private readonly PRISMA_OPERATORS = ['equals', 'not', 'in', 'notIn', 'lt', 'lte', 'gt', 'gte', 'contains', 'startsWith', 'endsWith', 'mode', 'has', 'hasSome', 'hasEvery', 'isEmpty', 'isSet'];
+
+  private readonly UNIQUE_FIELDS = ['id', 'uuid', 'email', 'username', 'slug', 'code', 'sku'];
+
+  private readonly SOFT_DELETE_CONFIGS = [
+    { field: 'deletedAt', condition: null },
+    { field: 'isDeleted', condition: false },
+    { field: 'status', condition: { not: 'deleted' } },
+  ];
+  constructor(private readonly prisma: PrismaService) {}
+  private validatePagination(page: number, limit: number): void {
+    if (page < 1 || limit < 1 || limit > 100) {
+      throw new BadRequestException('Invalid pagination parameters. Page must be >= 1, limit must be between 1 and 100');
+    }
+  }
+  private validateSearchFields(searchFields: (string | number | symbol)[], allowedSearchFields: string[]): void {
+    const invalidFields = searchFields.filter((field) => !allowedSearchFields.includes(field as string));
+
+    if (invalidFields.length > 0) {
+      throw new ForbiddenException(`Invalid search fields: ${invalidFields.join(', ')}`);
+    }
+  }
+  private validateSortFields(orderBy: OrderByOption[], allowedSortFields: string[]): void {
+    const invalidFields = orderBy.filter((orderByOption) => !allowedSortFields.includes(orderByOption.field));
+
+    if (invalidFields.length > 0) {
+      throw new ForbiddenException(`Invalid sort fields: ${invalidFields.map((f) => f.field).join(', ')}`);
+    }
+  }
+  private validateFilterFields(filters: Record<string, unknown>, allowedFilterFields: string[]): void {
+    const invalidFields = Object.keys(filters).filter((field) => !allowedFilterFields.includes(field));
+
+    if (invalidFields.length > 0) {
+      throw new ForbiddenException(`Invalid filter fields: ${invalidFields.join(', ')}`);
+    }
+  }
+  private validateSelectFields(select: Record<string, boolean>, allowedSelectFields: string[]): void {
+    const selectFields = Object.keys(select);
+    const invalidFields = selectFields.filter((field) => !allowedSelectFields.includes(field));
+
+    if (invalidFields.length > 0) {
+      throw new ForbiddenException(`Invalid select fields: ${invalidFields.join(', ')}`);
+    }
+  }
+  private validateIncludeFields(include: Record<string, boolean | Record<string, unknown>>, allowedIncludeFields: string[]): void {
+    const includeFields = Object.keys(include);
+    const invalidFields = includeFields.filter((field) => !allowedIncludeFields.includes(field));
+
+    if (invalidFields.length > 0) {
+      throw new ForbiddenException(`Invalid include fields: ${invalidFields.join(', ')}`);
+    }
+  }
+  private validateFields<T, W, S, I>(options: QueryOptions<T, W, S, I>, allowedFields?: FieldWhitelist): void {
+    if (!allowedFields) return;
+    if (options.searchFields && allowedFields.searchFields) {
+      this.validateSearchFields(options.searchFields, allowedFields.searchFields);
+    }
+    if (options.orderBy && allowedFields.sortFields) {
+      this.validateSortFields(options.orderBy, allowedFields.sortFields);
+    }
+    if (options.filters && allowedFields.filterFields) {
+      this.validateFilterFields(options.filters, allowedFields.filterFields);
+    }
+    if (options.select && allowedFields.selectFields) {
+      this.validateSelectFields(options.select, allowedFields.selectFields);
+    }
+    if (options.include && allowedFields.includeFields) {
+      this.validateIncludeFields(options.include, allowedFields.includeFields);
+    }
+  }
+  private createSoftDeleteConfigs(softDeleteConfig?: SoftDeleteConfig): Array<{ field: string; condition: unknown }> {
+    const configs = [...this.SOFT_DELETE_CONFIGS];
+    if (softDeleteConfig) {
+      configs.unshift({
+        field: softDeleteConfig.field!,
+        condition: softDeleteConfig.deletedValue ? { not: softDeleteConfig.deletedValue } : null,
+      });
+    }
+    return configs;
+  }
+  private applySoftDeleteFilter(whereClause: Record<string, unknown>, includeSoftDeleted: boolean = false, softDeleteConfig?: SoftDeleteConfig): void {
+    if (includeSoftDeleted) return;
+    const configs = this.createSoftDeleteConfigs(softDeleteConfig);
+    for (const config of configs) {
+      try {
+        whereClause[config.field] = config.condition;
+        break;
+      } catch (error) {
+        delete whereClause[config.field];
+        continue;
+      }
+    }
+  }
+  private isPrismaOperatorObject(value: unknown): boolean {
+    if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+      return false;
+    }
+    const obj = value as Record<string, unknown>;
+    return Object.keys(obj).some((key) => this.PRISMA_OPERATORS.includes(key));
+  }
+  private processSingleFilterValue(value: unknown): unknown {
+    if (value === undefined || value === null || value === '') {
+      return undefined;
+    }
+    if (this.isPrismaOperatorObject(value)) {
+      return value;
+    }
+    if (typeof value === 'object' && !Array.isArray(value) && value.constructor === Object) {
+      return this.processAdvancedFilters(value as Record<string, unknown>);
+    }
+    if (Array.isArray(value)) {
+      return { in: value };
+    }
+    if (typeof value === 'string' && value.includes('*')) {
+      return {
+        contains: value.replace(/\*/g, ''),
+        mode: 'insensitive',
+      };
+    }
+    return value;
+  }
+  private processAdvancedFilters(filters: Record<string, unknown>): Record<string, unknown> {
+    const processedFilters: Record<string, unknown> = {};
+    Object.entries(filters).forEach(([key, value]) => {
+      const processedValue = this.processSingleFilterValue(value);
+
+      if (processedValue !== undefined) {
+        processedFilters[key] = processedValue;
+      }
+    });
+    return processedFilters;
+  }
+  private createSearchConditions(search: string, searchFields: (string | number | symbol)[]): Record<string, unknown> {
+    return {
+      OR: searchFields.map((field) => ({
+        [field as string]: {
+          contains: search,
+          mode: 'insensitive',
+        },
+      })),
+    };
+  }
+  private buildWhereClause<T, W>(options: QueryOptions<T, W>, includeSoftDeleted: boolean, softDeleteConfig?: SoftDeleteConfig): Record<string, unknown> {
+    const whereClause: Record<string, unknown> = {};
+    this.applySoftDeleteFilter(whereClause, includeSoftDeleted, softDeleteConfig);
+    if (options.search && options.searchFields && options.searchFields.length > 0) {
+      Object.assign(whereClause, this.createSearchConditions(options.search, options.searchFields));
+    }
+    if (options.filters) {
+      const processedFilters = this.processAdvancedFilters(options.filters);
+      Object.assign(whereClause, processedFilters);
+    }
+    if (options.where) {
+      Object.assign(whereClause, options.where);
+    }
+    return whereClause;
+  }
+  private buildQueryOptions<T, S, I>(options: QueryOptions<T, Record<string, unknown>, S, I>, whereClause: Record<string, unknown>): Record<string, unknown> {
+    const queryOptions: Record<string, unknown> = {
+      where: whereClause,
+    };
+    if (options.page && options.limit) {
+      queryOptions.skip = (options.page - 1) * options.limit;
+      queryOptions.take = options.limit;
+    }
+    if (options.select) {
+      queryOptions.select = options.select;
+    }
+    if (options.include) {
+      queryOptions.include = options.include;
+    }
+    if (options.orderBy && options.orderBy.length > 0) {
+      queryOptions.orderBy = options.orderBy.map((o) => ({ [o.field]: o.order }));
+    }
+    if (options.distinct && options.distinct.length > 0) {
+      queryOptions.distinct = options.distinct as string[];
+    }
+    return queryOptions;
+  }
+  private calculatePaginationMeta(total: number, page: number, limit: number) {
+    const totalPages = Math.ceil(total / limit);
+    return {
+      total,
+      page,
+      limit,
+      totalPages,
+      hasNext: page < totalPages,
+      hasPrev: page > 1,
+    };
+  }
+  private canUseFindUnique(whereClause: Record<string, unknown>): boolean {
+    const whereKeys = Object.keys(whereClause);
+    const hasUniqueField = whereKeys.some((key) => this.UNIQUE_FIELDS.includes(key));
+    const isSimpleWhere = whereKeys.length === 1 && !whereKeys.some((key) => typeof whereClause[key] === 'object' && whereClause[key] !== null);
+    return hasUniqueField && isSimpleWhere;
+  }
+  private async tryFindUnique<T>(model: PrismaModel, queryOptions: Record<string, unknown>): Promise<T | null> {
+    try {
+      return await model.findUnique<T>(queryOptions);
+    } catch (error) {
+      return await model.findFirst<T>(queryOptions);
+    }
+  }
+  private createSoftDeleteUpdateData(softDeleteConfig?: SoftDeleteConfig): Record<string, unknown> {
+    const updateData: Record<string, unknown> = {};
+    if (softDeleteConfig?.field === 'deletedAt') {
+      updateData.deletedAt = new Date();
+    } else if (softDeleteConfig?.field === 'isDeleted') {
+      updateData.isDeleted = true;
+    } else if (softDeleteConfig?.field === 'status') {
+      updateData.status = softDeleteConfig.deletedValue || 'deleted';
+    } else {
+      updateData.deletedAt = new Date();
+    }
+    return updateData;
+  }
+  private createRestoreUpdateData(softDeleteConfig?: SoftDeleteConfig): Record<string, unknown> {
+    const updateData: Record<string, unknown> = {};
+    if (softDeleteConfig?.field === 'deletedAt') {
+      updateData.deletedAt = null;
+    } else if (softDeleteConfig?.field === 'isDeleted') {
+      updateData.isDeleted = false;
+    } else if (softDeleteConfig?.field === 'status') {
+      updateData.status = 'active'; // Default active status
+    } else {
+      updateData.deletedAt = null;
+    }
+    return updateData;
+  }
+  private async processBulkCreateInBatches<T>(model: PrismaModel, data: T[], batchSize: number, skipDuplicates: boolean): Promise<number> {
+    let totalCount = 0;
+    for (let i = 0; i < data.length; i += batchSize) {
+      const batch = data.slice(i, i + batchSize);
+      const result = await model.createMany({
+        data: batch,
+        skipDuplicates,
+      });
+      totalCount += result.count;
+    }
+    return totalCount;
+  }
+  async findMany<T, W = Record<string, unknown>, S = Record<string, boolean>, I = Record<string, boolean | Record<string, unknown>>>(
+    model: PrismaModel,
+    options: QueryOptions<T, W, S, I> = {},
+    allowedFields?: FieldWhitelist,
+    softDeleteConfig?: SoftDeleteConfig,
+  ): Promise<QueryResult<T>> {
+    const { page = 1, limit = 10, includeSoftDeleted = false } = options;
+    this.validateFields(options, allowedFields);
+    this.validatePagination(page, limit);
+    const whereClause = this.buildWhereClause(options, includeSoftDeleted, softDeleteConfig);
+    const queryOptions = this.buildQueryOptions(options, whereClause);
+    const [data, total] = await Promise.all([model.findMany<T>(queryOptions), model.count({ where: whereClause })]);
+    const meta = this.calculatePaginationMeta(total, page, limit);
+    return { data, meta };
+  }
+  async findOne<T, W = Record<string, unknown>, S = Record<string, boolean>, I = Record<string, boolean | Record<string, unknown>>>(
+    model: PrismaModel,
+    whereCondition: Record<string, unknown> | QueryOptions<T, W, S, I>,
+    additionalOptions: Partial<QueryOptions<T, W, S, I>> = {},
+    allowedFields?: FieldWhitelist,
+    softDeleteConfig?: SoftDeleteConfig,
+  ): Promise<SingleResult<T>> {
+    let queryOptions: Record<string, unknown> = {};
+    let whereClause: Record<string, unknown> = {};
+    if (this.isQueryOptions(whereCondition)) {
+      const options = whereCondition as QueryOptions<T, W, S, I>;
+      this.validateFields(options, allowedFields);
+      if (options.filters) {
+        whereClause = this.processAdvancedFilters(options.filters);
+      }
+      if (options.where) {
+        Object.assign(whereClause, options.where);
+      }
+      if (options.select) queryOptions.select = options.select;
+      if (options.include) queryOptions.include = options.include;
+    } else {
+      whereClause = whereCondition as Record<string, unknown>;
+      if (additionalOptions.include) {
+        queryOptions.include = additionalOptions.include;
+      }
+      if (additionalOptions.select) {
+        queryOptions.select = additionalOptions.select;
+      }
+    }
+    this.applySoftDeleteFilter(whereClause, additionalOptions.includeSoftDeleted, softDeleteConfig);
+    queryOptions.where = whereClause;
+    let data: T | null;
+    if (this.canUseFindUnique(whereClause)) {
+      data = await this.tryFindUnique<T>(model, queryOptions);
+    } else {
+      data = await model.findFirst<T>(queryOptions);
+    }
+    return {
+      data,
+      found: !!data,
+    };
+  }
+  private isQueryOptions(obj: unknown): boolean {
+    if (typeof obj !== 'object' || obj === null) return false;
+    const queryProps = ['page', 'limit', 'orderBy', 'search', 'filters'];
+    return queryProps.some((prop) => prop in (obj as Record<string, unknown>));
+  }
+  async findUnique<T, W = Record<string, unknown>, S = Record<string, boolean>, I = Record<string, boolean | Record<string, unknown>>>(
+    model: PrismaModel,
+    where: Record<string, unknown>,
+    options: Partial<QueryOptions<T, W, S, I>> = {},
+    allowedFields?: FieldWhitelist,
+    softDeleteConfig?: SoftDeleteConfig,
+  ): Promise<SingleResult<T>> {
+    this.validateFields(options, allowedFields);
+    const queryOptions: Record<string, unknown> = { where };
+    this.applySoftDeleteFilter(where, options.includeSoftDeleted, softDeleteConfig);
+    if (options.select) {
+      queryOptions.select = options.select;
+    }
+    if (options.include) {
+      queryOptions.include = options.include;
+    }
+    const data = await model.findUnique<T>(queryOptions);
+    return {
+      data,
+      found: !!data,
+    };
+  }
+  async count<T>(model: PrismaModel, options: Pick<QueryOptions<T>, 'filters' | 'search' | 'searchFields' | 'where' | 'includeSoftDeleted'> = {}, allowedFields?: FieldWhitelist, softDeleteConfig?: SoftDeleteConfig): Promise<number> {
+    this.validateFields(options, allowedFields);
+    const whereClause = this.buildWhereClause(options, options.includeSoftDeleted || false, softDeleteConfig);
+    return await model.count({ where: whereClause });
+  }
+  async exists<T>(model: PrismaModel, conditions: Record<string, unknown>, includeSoftDeleted: boolean = false, softDeleteConfig?: SoftDeleteConfig): Promise<boolean> {
+    const whereClause = { ...conditions };
+    this.applySoftDeleteFilter(whereClause, includeSoftDeleted, softDeleteConfig);
+    const count = await model.count({
+      where: whereClause,
+      take: 1,
+    });
+    return count > 0;
+  }
+  async aggregate<T>(model: PrismaModel, aggregations: Record<string, unknown>, filters: Record<string, unknown> = {}, includeSoftDeleted: boolean = false, softDeleteConfig?: SoftDeleteConfig): Promise<T> {
+    const whereClause: Record<string, unknown> = {};
+    this.applySoftDeleteFilter(whereClause, includeSoftDeleted, softDeleteConfig);
+    const processedFilters = this.processAdvancedFilters(filters);
+    Object.assign(whereClause, processedFilters);
+    return await model.aggregate<T>({
+      where: whereClause,
+      ...aggregations,
+    });
+  }
+  async groupBy<T>(model: PrismaModel, groupBy: string[], aggregations: Record<string, unknown> = {}, filters: Record<string, unknown> = {}, includeSoftDeleted: boolean = false, softDeleteConfig?: SoftDeleteConfig): Promise<T[]> {
+    const whereClause: Record<string, unknown> = {};
+    this.applySoftDeleteFilter(whereClause, includeSoftDeleted, softDeleteConfig);
+    const processedFilters = this.processAdvancedFilters(filters);
+    Object.assign(whereClause, processedFilters);
+    return await model.groupBy<T[]>({
+      by: groupBy,
+      where: whereClause,
+      ...aggregations,
+    });
+  }
+  async bulkCreate<T>(model: PrismaModel, data: T[], options: BulkCreateOptions = {}): Promise<CountResult> {
+    const { skipDuplicates = false, batchSize = 1000 } = options;
+    if (data.length <= batchSize) {
+      return await model.createMany({
+        data,
+        skipDuplicates,
+      });
+    }
+    const totalCount = await this.processBulkCreateInBatches(model, data, batchSize, skipDuplicates);
+    return { count: totalCount };
+  }
+  async softDelete<T>(model: PrismaModel, where: Record<string, unknown>, softDeleteConfig?: SoftDeleteConfig): Promise<T> {
+    const updateData = this.createSoftDeleteUpdateData(softDeleteConfig);
+    return await model.update<T>({
+      where,
+      data: updateData,
+    });
+  }
+  async restore<T>(model: PrismaModel, where: Record<string, unknown>, softDeleteConfig?: SoftDeleteConfig): Promise<T> {
+    const updateData = this.createRestoreUpdateData(softDeleteConfig);
+
+    return await model.update<T>({
+      where,
+      data: updateData,
+    });
+  }
+  async executeRaw<T = Record<string, unknown>>(query: string, params: unknown[] = []): Promise<T[]> {
+    return (await this.prisma.$queryRaw<T[]>`${query}`) as T[];
+  }
+  async transaction<T>(callback: (prisma: PrismaService) => Promise<T>): Promise<T> {
+    return await this.prisma.$transaction(callback);
+  }
+  generateCacheKey(modelName: string, options: QueryOptions): string {
+    const keyData = {
+      model: modelName,
+      ...options,
+    };
+    return Buffer.from(JSON.stringify(keyData)).toString('base64');
+  }
+  async upsert<T>(model: PrismaModel, where: Record<string, unknown>, update: Record<string, unknown>, create: Record<string, unknown>, includeSoftDeleted: boolean = false, softDeleteConfig?: SoftDeleteConfig): Promise<T> {
+    const whereClause = { ...where };
+    if (!includeSoftDeleted) {
+      this.applySoftDeleteFilter(whereClause, false, softDeleteConfig);
+    }
+    return await model.upsert<T>({
+      where: whereClause,
+      update,
+      create,
+    });
+  }
+  async batchUpdate(model: PrismaModel, where: Record<string, unknown>, data: Record<string, unknown>, includeSoftDeleted: boolean = false, softDeleteConfig?: SoftDeleteConfig): Promise<CountResult> {
+    const whereClause = { ...where };
+    this.applySoftDeleteFilter(whereClause, includeSoftDeleted, softDeleteConfig);
+    const result = await (model as unknown as { updateMany: (args: unknown) => Promise<CountResult> }).updateMany({
+      where: whereClause,
+      data,
+    });
+    return result;
+  }
+  async batchDelete(model: PrismaModel, where: Record<string, unknown>, includeSoftDeleted: boolean = false, softDeleteConfig?: SoftDeleteConfig): Promise<CountResult> {
+    const whereClause = { ...where };
+    this.applySoftDeleteFilter(whereClause, includeSoftDeleted, softDeleteConfig);
+    const result = await (model as unknown as { deleteMany: (args: unknown) => Promise<CountResult> }).deleteMany({
+      where: whereClause,
+    });
+    return result;
+  }
+  async batchSoftDelete(model: PrismaModel, where: Record<string, unknown>, softDeleteConfig?: SoftDeleteConfig): Promise<CountResult> {
+    const updateData = this.createSoftDeleteUpdateData(softDeleteConfig);
+    const result = await (model as unknown as { updateMany: (args: unknown) => Promise<CountResult> }).updateMany({
+      where,
+      data: updateData,
+    });
+    return result;
+  }
+  async getDistinctValues<T>(model: PrismaModel, field: string, filters: Record<string, unknown> = {}, includeSoftDeleted: boolean = false, softDeleteConfig?: SoftDeleteConfig): Promise<T[]> {
+    const whereClause: Record<string, unknown> = {};
+    this.applySoftDeleteFilter(whereClause, includeSoftDeleted, softDeleteConfig);
+    const processedFilters = this.processAdvancedFilters(filters);
+    Object.assign(whereClause, processedFilters);
+    const results = await model.findMany<{ [K in typeof field]: T }>({
+      where: whereClause,
+      select: { [field]: true },
+      distinct: [field],
+    });
+    return results.map((result) => result[field as keyof typeof result] as T);
+  }
+}

@@ -1,0 +1,253 @@
+crypto-market-analysis/
+├── README.md
+├── package.json
+├── tsconfig.json
+├── nest-cli.json
+├── .env
+├── .env.example
+├── .gitignore
+├── docker-compose.yml
+├── Dockerfile
+│
+├── prisma/
+│   ├── schema.prisma
+│   ├── migrations/
+│   └── seed.ts
+│
+├── src/
+│   ├── main.ts
+│   ├── app.module.ts
+│   │
+│   ├── config/
+│   │   ├── database.config.ts
+│   │   ├── app.config.ts
+│   │   ├── jwt.config.ts
+│   │   └── redis.config.ts
+│   │
+│   ├── shared/
+│   │   ├── constants/
+│   │   │   ├── index.ts
+│   │   │   ├── error-messages.ts
+│   │   │   └── crypto-symbols.ts
+│   │   ├── decorators/
+│   │   │   ├── index.ts
+│   │   │   ├── roles.decorator.ts
+│   │   │   └── api-response.decorator.ts
+│   │   ├── dto/
+│   │   │   ├── pagination.dto.ts
+│   │   │   └── base-response.dto.ts
+│   │   ├── entities/
+│   │   │   └── base.entity.ts
+│   │   ├── enums/
+│   │   │   ├── index.ts
+│   │   │   ├── crypto-status.enum.ts
+│   │   │   └── time-frame.enum.ts
+│   │   ├── exceptions/
+│   │   │   ├── business.exception.ts
+│   │   │   └── validation.exception.ts
+│   │   ├── filters/
+│   │   │   ├── all-exceptions.filter.ts
+│   │   │   └── http-exception.filter.ts
+│   │   ├── guards/
+│   │   │   ├── jwt-auth.guard.ts
+│   │   │   └── roles.guard.ts
+│   │   ├── interceptors/
+│   │   │   ├── response.interceptor.ts
+│   │   │   ├── logging.interceptor.ts
+│   │   │   └── cache.interceptor.ts
+│   │   ├── interfaces/
+│   │   │   ├── index.ts
+│   │   │   ├── api-response.interface.ts
+│   │   │   └── crypto-data.interface.ts
+│   │   ├── middlewares/
+│   │   │   ├── logger.middleware.ts
+│   │   │   └── cors.middleware.ts
+│   │   ├── pipes/
+│   │   │   ├── validation.pipe.ts
+│   │   │   └── parse-int.pipe.ts
+│   │   └── utils/
+│   │       ├── date.util.ts
+│   │       ├── crypto.util.ts
+│   │       └── pagination.util.ts
+│   │
+│   ├── database/
+│   │   ├── database.module.ts
+│   │   ├── database.service.ts
+│   │   └── repositories/
+│   │       ├── base.repository.ts
+│   │       ├── crypto.repository.ts
+│   │       └── user.repository.ts
+│   │
+│   ├── modules/
+│   │   ├── auth/
+│   │   │   ├── auth.module.ts
+│   │   │   ├── auth.controller.ts
+│   │   │   ├── auth.service.ts
+│   │   │   ├── dto/
+│   │   │   │   ├── login.dto.ts
+│   │   │   │   ├── register.dto.ts
+│   │   │   │   └── refresh-token.dto.ts
+│   │   │   ├── entities/
+│   │   │   │   └── user.entity.ts
+│   │   │   ├── guards/
+│   │   │   │   └── local-auth.guard.ts
+│   │   │   └── strategies/
+│   │   │       ├── jwt.strategy.ts
+│   │   │       └── local.strategy.ts
+│   │   │
+│   │   ├── crypto/
+│   │   │   ├── crypto.module.ts
+│   │   │   ├── crypto.controller.ts
+│   │   │   ├── crypto.service.ts
+│   │   │   ├── dto/
+│   │   │   │   ├── create-crypto.dto.ts
+│   │   │   │   ├── update-crypto.dto.ts
+│   │   │   │   └── crypto-filter.dto.ts
+│   │   │   ├── entities/
+│   │   │   │   ├── crypto.entity.ts
+│   │   │   │   └── crypto-price-history.entity.ts
+│   │   │   └── interfaces/
+│   │   │       └── crypto-api-response.interface.ts
+│   │   │
+│   │   ├── market-analysis/
+│   │   │   ├── market-analysis.module.ts
+│   │   │   ├── market-analysis.controller.ts
+│   │   │   ├── market-analysis.service.ts
+│   │   │   ├── dto/
+│   │   │   │   ├── analysis-request.dto.ts
+│   │   │   │   └── market-trend.dto.ts
+│   │   │   ├── entities/
+│   │   │   │   ├── market-analysis.entity.ts
+│   │   │   │   └── trend-indicator.entity.ts
+│   │   │   └── strategies/
+│   │   │       ├── technical-analysis.strategy.ts
+│   │   │       ├── sentiment-analysis.strategy.ts
+│   │   │       └── volume-analysis.strategy.ts
+│   │   │
+│   │   ├── portfolio/
+│   │   │   ├── portfolio.module.ts
+│   │   │   ├── portfolio.controller.ts
+│   │   │   ├── portfolio.service.ts
+│   │   │   ├── dto/
+│   │   │   │   ├── create-portfolio.dto.ts
+│   │   │   │   └── portfolio-performance.dto.ts
+│   │   │   └── entities/
+│   │   │       ├── portfolio.entity.ts
+│   │   │       └── portfolio-asset.entity.ts
+│   │   │
+│   │   ├── alerts/
+│   │   │   ├── alerts.module.ts
+│   │   │   ├── alerts.controller.ts
+│   │   │   ├── alerts.service.ts
+│   │   │   ├── dto/
+│   │   │   │   ├── create-alert.dto.ts
+│   │   │   │   └── alert-trigger.dto.ts
+│   │   │   └── entities/
+│   │   │       └── price-alert.entity.ts
+│   │   │
+│   │   ├── news/
+│   │   │   ├── news.module.ts
+│   │   │   ├── news.controller.ts
+│   │   │   ├── news.service.ts
+│   │   │   ├── dto/
+│   │   │   │   └── news-filter.dto.ts
+│   │   │   └── entities/
+│   │   │       └── crypto-news.entity.ts
+│   │   │
+│   │   └── webhooks/
+│   │       ├── webhooks.module.ts
+│   │       ├── webhooks.controller.ts
+│   │       ├── webhooks.service.ts
+│   │       └── dto/
+│   │           └── webhook-payload.dto.ts
+│   │
+│   ├── providers/
+│   │   ├── external-api/
+│   │   │   ├── coinbase/
+│   │   │   │   ├── coinbase.module.ts
+│   │   │   │   ├── coinbase.service.ts
+│   │   │   │   └── interfaces/
+│   │   │   │       └── coinbase-response.interface.ts
+│   │   │   ├── binance/
+│   │   │   │   ├── binance.module.ts
+│   │   │   │   ├── binance.service.ts
+│   │   │   │   └── interfaces/
+│   │   │   │       └── binance-response.interface.ts
+│   │   │   └── coingecko/
+│   │   │       ├── coingecko.module.ts
+│   │   │       ├── coingecko.service.ts
+│   │   │       └── interfaces/
+│   │   │           └── coingecko-response.interface.ts
+│   │   ├── cache/
+│   │   │   ├── cache.module.ts
+│   │   │   ├── cache.service.ts
+│   │   │   └── redis.service.ts
+│   │   ├── notification/
+│   │   │   ├── notification.module.ts
+│   │   │   ├── notification.service.ts
+│   │   │   ├── email/
+│   │   │   │   └── email.service.ts
+│   │   │   └── sms/
+│   │   │       └── sms.service.ts
+│   │   └── queue/
+│   │       ├── queue.module.ts
+│   │       ├── queue.service.ts
+│   │       └── processors/
+│   │           ├── price-update.processor.ts
+│   │           └── analysis.processor.ts
+│   │
+│   ├── jobs/
+│   │   ├── jobs.module.ts
+│   │   ├── price-fetcher.job.ts
+│   │   ├── market-analysis.job.ts
+│   │   └── data-cleanup.job.ts
+│   │
+│   └── health/
+│       ├── health.module.ts
+│       ├── health.controller.ts
+│       └── indicators/
+│           ├── database.indicator.ts
+│           ├── redis.indicator.ts
+│           └── external-api.indicator.ts
+│
+├── test/
+│   ├── app.e2e-spec.ts
+│   ├── jest-e2e.json
+│   ├── fixtures/
+│   │   ├── crypto-data.fixture.ts
+│   │   └── user.fixture.ts
+│   ├── integration/
+│   │   ├── auth.integration.spec.ts
+│   │   └── crypto.integration.spec.ts
+│   └── unit/
+│       ├── crypto/
+│       │   └── crypto.service.spec.ts
+│       └── market-analysis/
+│           └── market-analysis.service.spec.ts
+│
+├── docs/
+│   ├── API.md
+│   ├── ARCHITECTURE.md
+│   ├── DEPLOYMENT.md
+│   └── swagger/
+│       └── api-spec.json
+│
+├── scripts/
+│   ├── build.sh
+│   ├── deploy.sh
+│   ├── seed-data.ts
+│   └── backup-db.sh
+│
+└── infrastructure/
+    ├── k8s/
+    │   ├── deployment.yaml
+    │   ├── service.yaml
+    │   └── ingress.yaml
+    ├── terraform/
+    │   ├── main.tf
+    │   ├── variables.tf
+    │   └── outputs.tf
+    └── monitoring/
+        ├── prometheus.yml
+        └── grafana/
+            └── dashboards/

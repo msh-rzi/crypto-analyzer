@@ -1,0 +1,503 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+    provider = "prisma-client-js"
+}
+
+datasource db {
+    provider = "postgresql"
+    url      = env("DATABASE_URL")
+}
+
+// ENUMS
+enum AlertType {
+    PRICE_SPIKE
+    PRICE_DROP
+    VOLUME_SURGE
+    WHALE_ACTIVITY
+    NEWS_SENTIMENT
+    TECHNICAL_INDICATOR
+    ARBITRAGE_OPPORTUNITY
+    EXCHANGE_OUTAGE
+    ROBOT_ACTIVITY
+}
+
+enum AlertSeverity {
+    LOW
+    MEDIUM
+    HIGH
+    CRITICAL
+}
+
+enum AlertRuleType {
+    PRICE_CHANGE
+    VOLUME_CHANGE
+    WHALE_ACTIVITY
+    NEWS_SENTIMENT
+    TECHNICAL_INDICATOR
+}
+
+enum NewsSentiment {
+    POSITIVE
+    NEGATIVE
+    NEUTRAL
+}
+
+enum WhaleTradeType {
+    WHALE_TO_EXCHANGE
+    EXCHANGE_TO_WHALE
+    WHALE_TO_WHALE
+    UNKNOWN
+}
+
+enum IndicatorType {
+    RSI
+    MACD
+    BOLLINGER_BANDS
+    SMA
+    EMA
+    STOCHASTIC
+    ADX
+    ATR
+    CCI
+    WILLIAMS_R
+    MOMENTUM
+    ROC
+    STOCH_RSI
+    ICHIMOKU_CLOUD
+    PARABOLIC_SAR
+    VOLUME_WEIGHTED_AVERAGE_PRICE
+    ON_BALANCE_VOLUME
+    ACCUMULATION_DISTRIBUTION
+    CHAIKIN_MONEY_FLOW
+    FORCE_INDEX
+}
+
+enum IndicatorTimeframe {
+    ONE_MINUTE
+    FIVE_MINUTES
+    FIFTEEN_MINUTES
+    THIRTY_MINUTES
+    ONE_HOUR
+    FOUR_HOURS
+    ONE_DAY
+    ONE_WEEK
+    ONE_MONTH
+}
+
+// 1. USER TABLE - User information and preferences
+model User {
+    id        String   @id @default(uuid()) @db.Uuid
+    username  String   @unique
+    email     String   @unique
+    isActive  Boolean  @default(true) @map("is_active")
+    createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+    updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+    // Relations
+    telegram      Telegram?
+    robots        Robot[]
+    subscriptions UserSubscription[]
+    alerts        Alert[]
+
+    @@index([username])
+    @@index([email])
+    @@map("users")
+}
+
+// 2. TELEGRAM TABLE - Telegram bot configuration
+model Telegram {
+    id        String   @id @default(uuid()) @db.Uuid
+    userId    String   @unique @map("user_id") @db.Uuid
+    botToken  String   @map("bot_token")
+    chatId    String   @map("chat_id")
+    isActive  Boolean  @default(true) @map("is_active")
+    createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+    updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+    // Relations
+    user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+    robots Robot[]
+
+    @@index([userId])
+    @@map("telegram")
+}
+
+// 3. ASSET TABLE - Core cryptocurrency information
+model Asset {
+    id              String   @id @default(uuid()) @db.Uuid
+    symbol          String   @unique
+    name            String
+    coinGeckoId     String?  @map("coin_gecko_id")
+    coinMarketCapId String?  @map("coin_market_cap_id")
+    marketCap       String?  @map("market_cap")
+    marketCapRank   Int?     @map("market_cap_rank")
+    isActive        Boolean  @default(true) @map("is_active")
+    isTracked       Boolean  @default(true) @map("is_tracked")
+    createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
+    updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+    // Relations
+    metrics                AssetMetric[]
+    alerts                 Alert[]
+    whaleTrades            WhaleTrade[]
+    news                   News[]
+    alertRules             AlertRule[]
+    userSubscriptions      UserSubscription[]
+    arbitrageOpportunities ArbitrageOpportunity[]
+    baseTradingPairs       TradingPair[]          @relation("BaseAsset")
+    quoteTradingPairs      TradingPair[]          @relation("QuoteAsset")
+    robots                 Robot[]
+    indicators             Indicator[]
+
+    @@index([symbol])
+    @@index([isActive, symbol])
+    @@map("assets")
+}
+
+// 4. EXCHANGE TABLE - Trading platforms/markets
+model Exchange {
+    id        String   @id @default(uuid()) @db.Uuid
+    symbol    String   @unique
+    name      String
+    apiUrl    String?  @map("api_url")
+    apiConfig Json?    @map("api_config")
+    country   String?
+    makerFee  String?  @map("maker_fee")
+    takerFee  String?  @map("taker_fee")
+    isActive  Boolean  @default(true) @map("is_active")
+    isTracked Boolean  @default(true) @map("is_tracked")
+    createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+    updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+    // Relations
+    metrics                    AssetMetric[]
+    tradingPairs               TradingPair[]
+    arbitrageOpportunitiesBuy  ArbitrageOpportunity[] @relation("BuyExchange")
+    arbitrageOpportunitiesSell ArbitrageOpportunity[] @relation("SellExchange")
+    alerts                     Alert[]
+    indicators                 Indicator[]
+
+    @@index([symbol])
+    @@index([isActive])
+    @@map("exchanges")
+}
+
+// 5. TRADING_PAIRS TABLE - Available trading pairs per exchange
+model TradingPair {
+    id             String   @id @default(uuid()) @db.Uuid
+    exchangeId     String   @map("exchange_id") @db.Uuid
+    baseAssetId    String   @map("base_asset_id") @db.Uuid
+    quoteAssetId   String   @map("quote_asset_id") @db.Uuid
+    symbol         String
+    minTradeAmount String?  @map("min_trade_amount")
+    maxTradeAmount String?  @map("max_trade_amount")
+    tickSize       String?  @map("tick_size")
+    stepSize       String?  @map("step_size")
+    isActive       Boolean  @default(true) @map("is_active")
+    createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
+    updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+    // Relations
+    exchange   Exchange      @relation(fields: [exchangeId], references: [id], onDelete: Cascade)
+    baseAsset  Asset         @relation("BaseAsset", fields: [baseAssetId], references: [id], onDelete: Cascade)
+    quoteAsset Asset         @relation("QuoteAsset", fields: [quoteAssetId], references: [id], onDelete: Cascade)
+    metrics    AssetMetric[]
+    robots     Robot[]
+    indicators Indicator[]
+
+    @@unique([exchangeId, baseAssetId, quoteAssetId])
+    @@index([baseAssetId, isActive])
+    @@index([exchangeId, isActive])
+    @@map("trading_pairs")
+}
+
+// 6. ROBOT TABLE - Automated trading strategies
+model Robot {
+    id         String   @id @default(uuid()) @db.Uuid
+    userId     String   @map("user_id") @db.Uuid
+    telegramId String   @map("telegram_id") @db.Uuid
+    name       String
+    strategy   String
+    config     Json
+    isActive   Boolean  @default(true) @map("is_active")
+    createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+    updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+    // Relations
+    user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+    telegram     Telegram      @relation(fields: [telegramId], references: [id], onDelete: Cascade)
+    metrics      AssetMetric[]
+    tradingPairs TradingPair[]
+    assets       Asset[]
+
+    @@index([userId])
+    @@index([telegramId])
+    @@index([isActive])
+    @@map("robots")
+}
+
+// 7. ASSET_METRICS TABLE - Exchange-specific time-series market data
+model AssetMetric {
+    id                       String   @id @default(uuid()) @db.Uuid
+    assetId                  String   @map("asset_id") @db.Uuid
+    exchangeId               String   @map("exchange_id") @db.Uuid
+    tradingPairId            String?  @map("trading_pair_id") @db.Uuid
+    robotId                  String?  @map("robot_id") @db.Uuid
+    timestamp                DateTime @db.Timestamptz
+    price                    String
+    priceChange24h           String?  @map("price_change_24h")
+    volume24h                String   @map("volume_24h")
+    marketCap                String?  @map("market_cap")
+    priceChangePercentage1h  String?  @map("price_change_percentage_1h")
+    priceChangePercentage24h String?  @map("price_change_percentage_24h")
+    priceChangePercentage7d  String?  @map("price_change_percentage_7d")
+    marketCapRank            Int?     @map("market_cap_rank")
+    high24h                  String?  @map("high_24h")
+    low24h                   String?  @map("low_24h")
+    circulatingSupply        String?  @map("circulating_supply")
+    totalSupply              String?  @map("total_supply")
+    bidPrice                 String?  @map("bid_price")
+    askPrice                 String?  @map("ask_price")
+    spread                   String?
+    quoteVolume24h           String?  @map("quote_volume_24h")
+    tradeCount24h            Int?     @map("trade_count_24h")
+    createdAt                DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+    // Relations
+    asset       Asset        @relation(fields: [assetId], references: [id], onDelete: Cascade)
+    exchange    Exchange     @relation(fields: [exchangeId], references: [id], onDelete: Cascade)
+    tradingPair TradingPair? @relation(fields: [tradingPairId], references: [id], onDelete: Cascade)
+    robot       Robot?       @relation(fields: [robotId], references: [id], onDelete: Cascade)
+
+    @@index([assetId, exchangeId, timestamp])
+    @@index([exchangeId, timestamp])
+    @@index([assetId, timestamp])
+    @@index([timestamp])
+    @@index([assetId, exchangeId, timestamp, price])
+    @@index([volume24h, timestamp])
+    @@index([tradingPairId, timestamp])
+    @@map("asset_metrics")
+}
+
+// 8. ARBITRAGE_OPPORTUNITIES TABLE - Cross-exchange price differences
+model ArbitrageOpportunity {
+    id                 String   @id @default(uuid()) @db.Uuid
+    baseAssetId        String   @map("base_asset_id") @db.Uuid
+    buyExchangeId      String   @map("buy_exchange_id") @db.Uuid
+    sellExchangeId     String   @map("sell_exchange_id") @db.Uuid
+    buyPrice           String   @map("buy_price")
+    sellPrice          String   @map("sell_price")
+    profitPercentage   String   @map("profit_percentage")
+    potentialProfitUsd String   @map("potential_profit_usd")
+    maxTradeAmount     String   @map("max_trade_amount")
+    detectedAt         DateTime @map("detected_at") @db.Timestamptz
+    windowDuration     Int      @default(300) @map("window_duration")
+    alertSent          Boolean  @default(false) @map("alert_sent")
+    createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+    // Relations
+    baseAsset    Asset    @relation(fields: [baseAssetId], references: [id], onDelete: Cascade)
+    buyExchange  Exchange @relation("BuyExchange", fields: [buyExchangeId], references: [id], onDelete: Cascade)
+    sellExchange Exchange @relation("SellExchange", fields: [sellExchangeId], references: [id], onDelete: Cascade)
+
+    @@index([baseAssetId, createdAt])
+    @@index([profitPercentage, createdAt])
+    @@index([buyExchangeId, sellExchangeId])
+    @@map("arbitrage_opportunities")
+}
+
+// 9. ALERTS TABLE - Generated alerts based on analysis
+model Alert {
+    id                String        @id @default(uuid()) @db.Uuid
+    assetId           String        @map("asset_id") @db.Uuid
+    exchangeId        String?       @map("exchange_id") @db.Uuid
+    type              AlertType
+    severity          AlertSeverity @default(MEDIUM)
+    message           String        @db.Text
+    metadata          Json?
+    triggerValue      String?       @map("trigger_value")
+    currentPrice      String?       @map("current_price")
+    previousPrice     String?       @map("previous_price")
+    isProcessed       Boolean       @default(false) @map("is_processed")
+    isSent            Boolean       @default(false) @map("is_sent")
+    processedAt       DateTime?     @map("processed_at") @db.Timestamptz
+    telegramMessageId String?       @map("telegram_message_id") @db.Text
+    createdAt         DateTime      @default(now()) @map("created_at") @db.Timestamptz
+    updatedAt         DateTime      @updatedAt @map("updated_at") @db.Timestamptz
+    userId            String        @map("user_id") @db.Uuid
+
+    // Relations
+    asset    Asset     @relation(fields: [assetId], references: [id], onDelete: Cascade)
+    exchange Exchange? @relation(fields: [exchangeId], references: [id], onDelete: Cascade)
+    user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+    @@index([assetId, exchangeId, createdAt])
+    @@index([severity, isProcessed])
+    @@index([type, createdAt])
+    @@index([isProcessed, createdAt])
+    @@map("alerts")
+}
+
+// 10. ALERT_RULES TABLE - Configurable alert conditions
+model AlertRule {
+    id             String        @id @default(uuid()) @db.Uuid
+    assetId        String?       @map("asset_id") @db.Uuid
+    name           String
+    ruleType       AlertRuleType @map("rule_type")
+    conditions     Json
+    severity       AlertSeverity @default(MEDIUM)
+    isActive       Boolean       @default(true) @map("is_active")
+    cooldownPeriod Int           @default(300) @map("cooldown_period")
+    lastTriggered  DateTime?     @map("last_triggered") @db.Timestamptz
+    createdAt      DateTime      @default(now()) @map("created_at") @db.Timestamptz
+    updatedAt      DateTime      @updatedAt @map("updated_at") @db.Timestamptz
+
+    // Relations
+    asset Asset? @relation(fields: [assetId], references: [id], onDelete: Cascade)
+
+    @@index([assetId, isActive])
+    @@index([ruleType, isActive])
+    @@map("alert_rules")
+}
+
+// 11. NEWS TABLE - News articles and sentiment analysis
+model News {
+    id               String         @id @default(uuid()) @db.Uuid
+    assetId          String?        @map("asset_id") @db.Uuid
+    title            String
+    content          String?        @db.Text
+    summary          String?
+    source           String
+    author           String?
+    url              String         @db.Text
+    imageUrl         String?        @map("image_url") @db.Text
+    publishedAt      DateTime       @map("published_at") @db.Timestamptz
+    sentiment        NewsSentiment?
+    sentimentScore   String?        @map("sentiment_score")
+    tags             String[]
+    socialEngagement Int            @default(0) @map("social_engagement")
+    isProcessed      Boolean        @default(false) @map("is_processed")
+    createdAt        DateTime       @default(now()) @map("created_at") @db.Timestamptz
+    updatedAt        DateTime       @updatedAt @map("updated_at") @db.Timestamptz
+
+    // Relations
+    asset Asset? @relation(fields: [assetId], references: [id], onDelete: SetNull)
+
+    @@index([assetId, publishedAt])
+    @@index([sentiment, publishedAt])
+    @@index([source, publishedAt])
+    @@index([publishedAt])
+    @@map("news")
+}
+
+// 12. WHALE_TRADES TABLE - Large transactions tracking
+model WhaleTrade {
+    id              String         @id @default(uuid()) @db.Uuid
+    assetId         String         @map("asset_id") @db.Uuid
+    transactionHash String         @unique @map("transaction_hash")
+    fromAddress     String         @map("from_address")
+    toAddress       String         @map("to_address")
+    amount          String
+    valueUsd        String         @map("value_usd")
+    timestamp       DateTime       @db.Timestamptz
+    exchange        String?
+    type            WhaleTradeType
+    blockNumber     Int?           @map("block_number")
+    gasPrice        String?        @map("gas_price")
+    gasUsed         Int?           @map("gas_used")
+    alertGenerated  Boolean        @default(false) @map("alert_generated")
+    createdAt       DateTime       @default(now()) @map("created_at") @db.Timestamptz
+
+    // Relations
+    asset Asset @relation(fields: [assetId], references: [id], onDelete: Cascade)
+
+    @@index([assetId, timestamp])
+    @@index([transactionHash])
+    @@index([amount, timestamp])
+    @@index([fromAddress])
+    @@index([toAddress])
+    @@map("whale_trades")
+}
+
+// 13. USER_SUBSCRIPTIONS TABLE - User alert preferences
+model UserSubscription {
+    id               String        @id @default(uuid()) @db.Uuid
+    telegramUserId   BigInt        @map("telegram_user_id")
+    telegramUsername String?       @map("telegram_username")
+    assetId          String?       @map("asset_id") @db.Uuid
+    alertTypes       String[]      @map("alert_types")
+    minSeverity      AlertSeverity @default(MEDIUM) @map("min_severity")
+    isActive         Boolean       @default(true) @map("is_active")
+    createdAt        DateTime      @default(now()) @map("created_at") @db.Timestamptz
+    updatedAt        DateTime      @updatedAt @map("updated_at") @db.Timestamptz
+    userId           String        @map("user_id") @db.Uuid
+
+    // Relations
+    asset Asset? @relation(fields: [assetId], references: [id], onDelete: Cascade)
+    user  User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+    @@index([telegramUserId])
+    @@index([assetId, isActive])
+    @@map("user_subscriptions")
+}
+
+// 14. INDICATOR TABLE - Technical indicator configurations
+model Indicator {
+    id            String  @id @default(uuid()) @db.Uuid
+    assetId       String  @map("asset_id") @db.Uuid
+    exchangeId    String? @map("exchange_id") @db.Uuid
+    tradingPairId String? @map("trading_pair_id") @db.Uuid
+
+    type      IndicatorType // e.g., RSI, MACD, BollingerBands
+    timeframe IndicatorTimeframe // e.g., 1m, 5m, 1h, 1d
+    name      String
+
+    parameters   Json // Standardized param format: {"period": 14, "smoothing": "EMA"}
+    outputFields String[] @map("output_fields") // e.g., ["rsi"], ["macd", "signal", "histogram"]
+
+    isActive Boolean @default(true) @map("is_active")
+    isPublic Boolean @default(false) @map("is_public") // Shared indicator or user-defined?
+
+    createdBy String?  @map("created_by") @db.Uuid // Optional: userId if indicators are user-specific
+    createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+    updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+    // Relations
+    asset       Asset               @relation(fields: [assetId], references: [id], onDelete: Cascade)
+    exchange    Exchange?           @relation(fields: [exchangeId], references: [id], onDelete: Cascade)
+    tradingPair TradingPair?        @relation(fields: [tradingPairId], references: [id], onDelete: Cascade)
+    snapshots   IndicatorSnapshot[]
+
+    // Indexes & Constraints
+    @@unique([assetId, exchangeId, tradingPairId, type, parameters, timeframe])
+    @@index([assetId, type, timeframe])
+    @@index([exchangeId, type])
+    @@index([tradingPairId, type])
+    @@index([isActive])
+    @@map("indicators")
+}
+
+// 15. INDICATOR_SNAPSHOT TABLE - Time-series data for technical indicators
+model IndicatorSnapshot {
+    id          String   @id @default(uuid()) @db.Uuid
+    indicatorId String   @map("indicator_id") @db.Uuid
+    timestamp   DateTime @db.Timestamptz // پایان کندل مربوطه
+
+    value    Json // e.g., {"rsi": 71.2} or {"macd": 1.2, "signal": 0.8}
+    metadata Json? // e.g., {"cross": "bullish", "strength": 0.92}
+
+    confidence Float?  @map("confidence_score") // بین 0 تا 1، در صورت محاسبه
+    signal     String?
+
+    createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+    // Relations
+    indicator Indicator @relation(fields: [indicatorId], references: [id], onDelete: Cascade)
+
+    // Indexes
+    @@index([indicatorId, timestamp])
+    @@index([timestamp])
+    @@map("indicator_snapshots")
+}

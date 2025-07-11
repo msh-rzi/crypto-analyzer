@@ -1,0 +1,17 @@
+{
+  "User": "No API needed",
+  "Telegram": "No API needed",
+  "Asset": ["/coins/list", "/coins/markets"],
+  "Exchange": ["/exchanges", "/exchanges/{id}"],
+  "TradingPair": ["/exchanges/{id}/tickers"],
+  "Robot": "No API needed",
+  "AssetMetric": ["/coins/{id}/market_chart", "/coins/{id}/tickers"],
+  "ArbitrageOpportunity": ["/coins/{id}/tickers"],
+  "Alert": "Indirectly from AssetMetric and ArbitrageOpportunity",
+  "AlertRule": "No API needed",
+  "News": "No Api supported",
+  "WhaleTrade": "No API needed (CoinGecko does not support)",
+  "UserSubscription": "No API needed",
+  "Indicator": "Indirectly from /coins/{id}/market_chart",
+  "IndicatorSnapshot": "Indirectly from /coins/{id}/market_chart"
+}

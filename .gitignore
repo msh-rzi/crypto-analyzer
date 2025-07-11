@@ -1,0 +1,53 @@
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Env
+.env
+.env.*.local
+
+# Compiled
+dist/
+build/
+*.js
+*.js.map
+*.d.ts
+*.d.ts.map
+
+# Nest CLI
+.cache/
+.nest/
+
+# Logs
+logs/
+*.log
+debug.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# Prisma
+prisma/dev.db
+prisma/dev.db-journal
+prisma/migrations/
+*.sqlite
+*.sqlite-journal
+
+# Test coverage
+coverage/
+.nyc_output/
+test-results.xml
+
+# Optional: Docker / Editor backups
+docker-compose.override.yml
+*.local.*
+*~ 
