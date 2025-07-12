@@ -1,5 +1,5 @@
 import { Type } from 'class-transformer';
-import { IsJSON, IsObject, IsOptional, IsString } from 'class-validator';
+import { IsObject, IsOptional, IsString } from 'class-validator';
 
 export class CreateExchangeDto {
   @IsString()

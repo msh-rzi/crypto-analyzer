@@ -19,7 +19,6 @@ export class TradingPairController implements OnModuleInit {
 
   onModuleInit() {
     const shouldInitData = this.configService.get<string>('INIT_TRADING_PAIRS');
-    console.log(shouldInitData);
     if (shouldInitData === 'false') return;
 
     BitcoinTickers.tickers.forEach(async (raw, indx) => {
@@ -30,10 +29,6 @@ export class TradingPairController implements OnModuleInit {
         raw.target.toLowerCase(),
       );
       const exchange = await this.exchangeBase.findById(raw.market.identifier);
-
-      this.logger.log(baseAsset);
-      this.logger.log(quoteAsset);
-      this.logger.log(exchange);
 
       if (baseAsset.data && quoteAsset.data && exchange.data) {
         this.createTradingPair({
@@ -48,19 +43,6 @@ export class TradingPairController implements OnModuleInit {
         });
       }
     });
-
-    // RippleTickers.tickers.forEach(async raw => {
-    //   this.createTradingPair({
-    //     symbol: `${raw.base}/${raw.target}`,
-    //     baseAssetId: raw.coin_id,
-    //     quoteAssetId: raw?.target_coin_id ?? '',
-    //     exchangeId: raw.market.identifier,
-    //     minTradeAmount: '1',
-    //     maxTradeAmount: '1000000',
-    //     tickSize: '0.01',
-    //     stepSize: '0.01',
-    //   });
-    // });
   }
 
   @Post()

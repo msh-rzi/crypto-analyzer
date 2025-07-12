@@ -3,21 +3,38 @@ import { CreateTradingPairDto } from '../dto/create-trading-pair.dto';
 import { PrismaService } from 'shared/prisma/prisma.service';
 import {
   DUPLICATE_ERROR,
+  NOT_FOUND,
   SOMETHING_HAPPEN_ERROR,
 } from 'shared/constants/errors';
+import { ExchangeBaseService } from 'modules/exchange/services/exchange-base.service';
 
 @Injectable()
 export class TradingPairBaseService {
   logger = new Logger();
-  constructor(private readonly prismaService: PrismaService) {}
+  constructor(
+    private readonly prismaService: PrismaService,
+    private readonly exchangeBase: ExchangeBaseService,
+  ) {}
 
   async createTradingPair(raw: CreateTradingPairDto) {
     try {
       // TODO: must add exchange search too
+
+      const exchangeData = await this.exchangeBase.findById(raw.exchangeId);
+      if (!exchangeData.data) {
+        this.logger.error('Failed to find exchange data');
+        return {
+          isSuccess: false,
+          data: null,
+          statue_code: 404,
+          error_cause: NOT_FOUND,
+        };
+      }
+
       const isDuplicate = await this.prismaService.tradingPair.findFirst({
         where: {
           symbol: raw.symbol,
-          // exchange: raw.
+          exchangeId: exchangeData.data.id,
         },
       });
 

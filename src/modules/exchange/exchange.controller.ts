@@ -13,8 +13,8 @@ export class ExchangeController implements OnModuleInit {
   ) {}
 
   onModuleInit() {
-    const shouldInitData = this.configService.get<boolean>('INIT_EXCHANGES');
-    if (Boolean(shouldInitData)) return;
+    const shouldInitData = this.configService.get<string>('INIT_EXCHANGES');
+    if (shouldInitData === 'false') return;
 
     const sortedExchangesByScoreRank = Exchanges.sort(
       (a, b) => a.trust_score_rank - b.trust_score_rank,

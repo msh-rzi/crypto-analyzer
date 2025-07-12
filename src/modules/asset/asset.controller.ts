@@ -15,9 +15,8 @@ export class AssetController implements OnModuleInit {
   ) {}
 
   onModuleInit() {
-    const shouldInitData = this.configService.get<boolean>('INIT_ASSETS');
-    console.log('init assets', shouldInitData);
-    if (Boolean(shouldInitData)) return;
+    const shouldInitData = this.configService.get<string>('INIT_ASSETS');
+    if (shouldInitData === 'false') return;
 
     const sortedMarketDataByMarketRank = MarketData.sort(
       (a, b) => a.market_cap_rank - b.market_cap_rank,
