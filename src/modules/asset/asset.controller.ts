@@ -2,8 +2,8 @@ import { Body, Controller, Logger, OnModuleInit, Post } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { AssetBaseService } from './services/asset-base.service';
 import { CreateAssetDto } from './dto/create-asset.dto';
-import { MarketData } from 'database/raw-data/market_data';
 import { ConfigService } from '@nestjs/config';
+import { CoinGeckoService } from 'shared/services/CoinGeckoService';
 
 @ApiTags('Asset Controller')
 @Controller('/asset')
@@ -12,26 +12,39 @@ export class AssetController implements OnModuleInit {
   constructor(
     private readonly base: AssetBaseService,
     private readonly configService: ConfigService,
+    private readonly coinGeckoService: CoinGeckoService,
   ) {}
 
-  onModuleInit() {
+  async onModuleInit() {
     const shouldInitData = this.configService.get<string>('INIT_ASSETS');
     if (shouldInitData === 'false') return;
 
-    const sortedMarketDataByMarketRank = MarketData.sort(
-      (a, b) => a.market_cap_rank - b.market_cap_rank,
-    );
+    const marketData = await this.coinGeckoService.getMarketData({
+      vs_currency: 'usd',
+    });
 
-    sortedMarketDataByMarketRank.forEach(rawAsset => {
-      this.createAsset({
-        symbol: rawAsset.symbol,
-        name: rawAsset.name,
-        coinGeckoId: rawAsset.id,
-        coinMarketCapId: rawAsset.id,
-        marketCap: rawAsset.market_cap.toString(),
-        marketCapRank: rawAsset.market_cap_rank,
+    const sortedByMarketCapRank = marketData.sort((a, b) => {
+      const rankA = a.market_cap_rank ?? Infinity;
+      const rankB = b.market_cap_rank ?? Infinity;
+      return rankA - rankB;
+    });
+
+    const createManyArray: CreateAssetDto[] = [];
+
+    sortedByMarketCapRank.forEach(raw => {
+      createManyArray.push({
+        symbol: raw.symbol ?? 'N/A',
+        name: raw.name ?? 'N/A',
+        coinGeckoId: raw.id ?? 'N/A',
+        coinMarketCapId: 'N/A',
+        marketCap: raw.market_cap?.toString() ?? 'N/A',
+        marketCapRank: raw?.market_cap_rank ?? -1,
+        image: raw?.image ?? 'N/A',
       });
     });
+
+    const result = await this.base.createAssetsBatch(createManyArray);
+    this.logger.log(result);
   }
 
   @Post('create-asset')

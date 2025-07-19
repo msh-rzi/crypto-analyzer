@@ -56,16 +56,50 @@ export class ExchangeBaseService {
       };
     }
   }
-  async findById(id: string) {
+  async findById(id: number) {
     try {
       const exchange = await this.prismaService.exchange.findFirst({
         where: {
-          symbol: id,
+          id,
         },
       });
 
       if (!exchange) {
         this.logger.warn('Exchange not found : ' + id);
+        return {
+          isSuccess: false,
+          data: null,
+          statue_code: 404,
+          error_cause: NOT_FOUND,
+        };
+      }
+
+      return {
+        isSuccess: true,
+        data: exchange,
+        statue_code: 200,
+        error_cause: null,
+      };
+    } catch (error) {
+      this.logger.error('Failed to find exchange with error : ' + error);
+      return {
+        isSuccess: false,
+        data: null,
+        statue_code: 500,
+        error_cause: SOMETHING_HAPPEN_ERROR,
+      };
+    }
+  }
+  async findBySymbol(symbol: string) {
+    try {
+      const exchange = await this.prismaService.exchange.findFirst({
+        where: {
+          symbol,
+        },
+      });
+
+      if (!exchange) {
+        this.logger.warn('Exchange not found : ' + symbol);
         return {
           isSuccess: false,
           data: null,

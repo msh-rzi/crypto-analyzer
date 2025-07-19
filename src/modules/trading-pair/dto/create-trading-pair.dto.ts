@@ -1,14 +1,14 @@
-import { IsOptional, IsString } from 'class-validator';
+import { IsInt, IsOptional, IsString } from 'class-validator';
 
 export class CreateTradingPairDto {
-  @IsString()
-  exchangeId: string;
+  @IsInt()
+  exchangeId: number;
 
-  @IsString()
-  baseAssetId: string;
+  @IsInt()
+  baseAssetId: number;
 
-  @IsString()
-  quoteAssetId: string;
+  @IsInt()
+  quoteAssetId: number;
 
   @IsString()
   symbol: string;

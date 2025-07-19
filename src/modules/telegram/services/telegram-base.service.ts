@@ -32,7 +32,7 @@ export class TelegramBaseService {
 
       if (!!isDuplicate) {
         this.logger.error(
-          'Failed to create asset with error : ' + DUPLICATE_ERROR,
+          'Failed to create telegram with error : ' + DUPLICATE_ERROR,
         );
         return {
           isSuccess: false,
@@ -51,7 +51,7 @@ export class TelegramBaseService {
         },
       });
 
-      this.logger.log('User created successfully');
+      this.logger.log('Telegram created successfully');
 
       return {
         isSuccess: true,
@@ -60,7 +60,7 @@ export class TelegramBaseService {
         error_cause: null,
       };
     } catch (error) {
-      this.logger.error('Failed to create user with error : ' + error);
+      this.logger.error('Failed to create telegram with error : ' + error);
       return {
         isSuccess: false,
         data: null,

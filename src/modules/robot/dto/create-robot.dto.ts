@@ -1,12 +1,12 @@
 import { Type } from 'class-transformer';
-import { IsObject, IsOptional, IsString } from 'class-validator';
+import { IsInt, IsObject, IsOptional, IsString } from 'class-validator';
 
 export class CreateRobotDto {
-  @IsString()
-  userId: string;
+  @IsInt()
+  userId: number;
 
-  @IsString()
-  telegramId: string;
+  @IsInt()
+  telegramId: number;
 
   @IsString()
   name: string;

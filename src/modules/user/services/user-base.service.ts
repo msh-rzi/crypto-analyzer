@@ -118,8 +118,6 @@ export class UserBaseService {
         };
       }
 
-      this.logger.log('User created successfully');
-
       return {
         isSuccess: true,
         data: user,
@@ -137,7 +135,7 @@ export class UserBaseService {
     }
   }
 
-  async findById({ id }: { id: string }) {
+  async findById({ id }: { id: number }) {
     try {
       const user = await this.prismaService.user.findFirst({
         where: { id },

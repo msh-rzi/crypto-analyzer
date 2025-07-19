@@ -9,6 +9,10 @@ export class CreateAssetDto {
 
   @IsOptional()
   @IsString()
+  image: string;
+
+  @IsOptional()
+  @IsString()
   coinGeckoId: string;
 
   @IsOptional()

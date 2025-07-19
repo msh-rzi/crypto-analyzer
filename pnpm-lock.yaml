@@ -41,6 +41,9 @@ importers:
       class-validator:
         specifier: ^0.14.2
         version: 0.14.2
+      coingecko-api-v3:
+        specifier: ^0.0.31
+        version: 0.0.31
       nest-commander:
         specifier: ^3.17.0
         version: 3.17.0(@nestjs/common@11.0.20(class-transformer@0.5.1)(class-validator@0.14.2)(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.0.20)(@types/inquirer@8.2.11)(typescript@5.8.3)
@@ -1607,6 +1610,9 @@ packages:
     resolution: {integrity: sha512-QVb0dM5HvG+uaxitm8wONl7jltx8dqhfU33DcqtOZcLSVIKSDDLDi7+0LbAKiyI8hD9u42m2YxXSkMGWThaecQ==}
     engines: {iojs: '>= 1.0.0', node: '>= 0.12.0'}
 
+  coingecko-api-v3@0.0.31:
+    resolution: {integrity: sha512-X+9SdZivtX0xKfmIl6ST3/Z+T5sFIQF00e599rg0vgxAR4wNBq6RnAVzo8HgLZm7H77RX7vApFdluR7vPKLbGQ==}
+
   collect-v8-coverage@1.0.2:
     resolution: {integrity: sha512-lHl4d5/ONEbLlJvaJNtsF/Lz+WvB07u2ycqTYbdrq7UypDXailES4valYb2eWiJFxZlVmpGekfqoxQhzyFdT4Q==}
 
@@ -2246,6 +2252,9 @@ packages:
   http2-wrapper@2.2.1:
     resolution: {integrity: sha512-V5nVw1PAOgfI3Lmeaj2Exmeg7fenjhRUgz1lPSezy1CuhPYbgQtbQj4jZfEAEMlaL+vupsvhjqCyjzob0yxsmQ==}
     engines: {node: '>=10.19.0'}
+
+  https@1.0.0:
+    resolution: {integrity: sha512-4EC57ddXrkaF0x83Oj8sM6SLQHAWXw90Skqu2M4AEWENZ3F02dFJE/GARA8igO79tcgYqGrD7ae4f5L3um2lgg==}
 
   human-signals@2.1.0:
     resolution: {integrity: sha512-B4FFZ6q/T2jhhksgkbEW3HBvWIfDW85snkQgawt07S7J5QXTk6BkNV+0yAeZrM5QpMAdYlocGoljn0sJ/WQkFw==}
@@ -5488,6 +5497,10 @@ snapshots:
 
   co@4.6.0: {}
 
+  coingecko-api-v3@0.0.31:
+    dependencies:
+      https: 1.0.0
+
   collect-v8-coverage@1.0.2: {}
 
   color-convert@2.0.1:
@@ -6170,6 +6183,8 @@ snapshots:
     dependencies:
       quick-lru: 5.1.1
       resolve-alpn: 1.2.1
+
+  https@1.0.0: {}
 
   human-signals@2.1.0: {}
 

@@ -88,7 +88,7 @@ enum IndicatorTimeframe {
 
 // 1. USER TABLE - User information and preferences
 model User {
-    id        String   @id @default(uuid()) @db.Uuid
+    id        Int      @id @default(autoincrement())
     username  String   @unique
     email     String   @unique
     isActive  Boolean  @default(true) @map("is_active")
@@ -108,8 +108,8 @@ model User {
 
 // 2. TELEGRAM TABLE - Telegram bot configuration
 model Telegram {
-    id        String   @id @default(uuid()) @db.Uuid
-    userId    String   @unique @map("user_id") @db.Uuid
+    id        Int      @id @default(autoincrement())
+    userId    Int      @unique @map("user_id")
     botToken  String   @map("bot_token")
     chatId    String   @map("chat_id")
     isActive  Boolean  @default(true) @map("is_active")
@@ -126,9 +126,10 @@ model Telegram {
 
 // 3. ASSET TABLE - Core cryptocurrency information
 model Asset {
-    id              String   @id @default(uuid()) @db.Uuid
+    id              Int      @id @default(autoincrement())
     symbol          String   @unique
     name            String
+    image           String?
     coinGeckoId     String?  @map("coin_gecko_id")
     coinMarketCapId String?  @map("coin_market_cap_id")
     marketCap       String?  @map("market_cap")
@@ -158,18 +159,20 @@ model Asset {
 
 // 4. EXCHANGE TABLE - Trading platforms/markets
 model Exchange {
-    id        String   @id @default(uuid()) @db.Uuid
-    symbol    String   @unique
-    name      String
-    apiUrl    String?  @map("api_url")
-    apiConfig Json?    @map("api_config")
-    country   String?
-    makerFee  String?  @map("maker_fee")
-    takerFee  String?  @map("taker_fee")
-    isActive  Boolean  @default(true) @map("is_active")
-    isTracked Boolean  @default(true) @map("is_tracked")
-    createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
-    updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+    id          Int      @id @default(autoincrement())
+    symbol      String   @unique
+    name        String
+    image       String
+    description String
+    apiUrl      String?  @map("api_url")
+    apiConfig   Json?    @map("api_config")
+    country     String?
+    makerFee    String?  @map("maker_fee")
+    takerFee    String?  @map("taker_fee")
+    isActive    Boolean  @default(true) @map("is_active")
+    isTracked   Boolean  @default(true) @map("is_tracked")
+    createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+    updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
     // Relations
     metrics                    AssetMetric[]
@@ -186,10 +189,10 @@ model Exchange {
 
 // 5. TRADING_PAIRS TABLE - Available trading pairs per exchange
 model TradingPair {
-    id             String   @id @default(uuid()) @db.Uuid
-    exchangeId     String   @map("exchange_id") @db.Uuid
-    baseAssetId    String   @map("base_asset_id") @db.Uuid
-    quoteAssetId   String   @map("quote_asset_id") @db.Uuid
+    id             Int      @id @default(autoincrement())
+    exchangeId     Int      @map("exchange_id")
+    baseAssetId    Int      @map("base_asset_id")
+    quoteAssetId   Int      @map("quote_asset_id")
     symbol         String
     minTradeAmount String?  @map("min_trade_amount")
     maxTradeAmount String?  @map("max_trade_amount")
@@ -215,9 +218,9 @@ model TradingPair {
 
 // 6. ROBOT TABLE - Automated trading strategies
 model Robot {
-    id         String   @id @default(uuid()) @db.Uuid
-    userId     String   @map("user_id") @db.Uuid
-    telegramId String   @map("telegram_id") @db.Uuid
+    id         Int      @id @default(autoincrement())
+    userId     Int      @map("user_id")
+    telegramId Int      @map("telegram_id")
     name       String
     strategy   String
     config     Json
@@ -240,11 +243,11 @@ model Robot {
 
 // 7. ASSET_METRICS TABLE - Exchange-specific time-series market data
 model AssetMetric {
-    id                       String   @id @default(uuid()) @db.Uuid
-    assetId                  String   @map("asset_id") @db.Uuid
-    exchangeId               String   @map("exchange_id") @db.Uuid
-    tradingPairId            String?  @map("trading_pair_id") @db.Uuid
-    robotId                  String?  @map("robot_id") @db.Uuid
+    id                       Int      @id @default(autoincrement())
+    assetId                  Int      @map("asset_id")
+    exchangeId               Int      @map("exchange_id")
+    tradingPairId            Int?     @map("trading_pair_id")
+    robotId                  Int?     @map("robot_id")
     timestamp                DateTime @db.Timestamptz
     price                    String
     priceChange24h           String?  @map("price_change_24h")
@@ -283,10 +286,10 @@ model AssetMetric {
 
 // 8. ARBITRAGE_OPPORTUNITIES TABLE - Cross-exchange price differences
 model ArbitrageOpportunity {
-    id                 String   @id @default(uuid()) @db.Uuid
-    baseAssetId        String   @map("base_asset_id") @db.Uuid
-    buyExchangeId      String   @map("buy_exchange_id") @db.Uuid
-    sellExchangeId     String   @map("sell_exchange_id") @db.Uuid
+    id                 Int      @id @default(autoincrement())
+    baseAssetId        Int      @map("base_asset_id")
+    buyExchangeId      Int      @map("buy_exchange_id")
+    sellExchangeId     Int      @map("sell_exchange_id")
     buyPrice           String   @map("buy_price")
     sellPrice          String   @map("sell_price")
     profitPercentage   String   @map("profit_percentage")
@@ -310,9 +313,9 @@ model ArbitrageOpportunity {
 
 // 9. ALERTS TABLE - Generated alerts based on analysis
 model Alert {
-    id                String        @id @default(uuid()) @db.Uuid
-    assetId           String        @map("asset_id") @db.Uuid
-    exchangeId        String?       @map("exchange_id") @db.Uuid
+    id                Int           @id @default(autoincrement())
+    assetId           Int           @map("asset_id")
+    exchangeId        Int?          @map("exchange_id")
     type              AlertType
     severity          AlertSeverity @default(MEDIUM)
     message           String        @db.Text
@@ -326,7 +329,7 @@ model Alert {
     telegramMessageId String?       @map("telegram_message_id") @db.Text
     createdAt         DateTime      @default(now()) @map("created_at") @db.Timestamptz
     updatedAt         DateTime      @updatedAt @map("updated_at") @db.Timestamptz
-    userId            String        @map("user_id") @db.Uuid
+    userId            Int           @map("user_id")
 
     // Relations
     asset    Asset     @relation(fields: [assetId], references: [id], onDelete: Cascade)
@@ -342,8 +345,8 @@ model Alert {
 
 // 10. ALERT_RULES TABLE - Configurable alert conditions
 model AlertRule {
-    id             String        @id @default(uuid()) @db.Uuid
-    assetId        String?       @map("asset_id") @db.Uuid
+    id             Int           @id @default(autoincrement())
+    assetId        Int?          @map("asset_id")
     name           String
     ruleType       AlertRuleType @map("rule_type")
     conditions     Json
@@ -364,8 +367,8 @@ model AlertRule {
 
 // 11. NEWS TABLE - News articles and sentiment analysis
 model News {
-    id               String         @id @default(uuid()) @db.Uuid
-    assetId          String?        @map("asset_id") @db.Uuid
+    id               Int            @id @default(autoincrement())
+    assetId          Int?           @map("asset_id")
     title            String
     content          String?        @db.Text
     summary          String?
@@ -394,8 +397,8 @@ model News {
 
 // 12. WHALE_TRADES TABLE - Large transactions tracking
 model WhaleTrade {
-    id              String         @id @default(uuid()) @db.Uuid
-    assetId         String         @map("asset_id") @db.Uuid
+    id              Int            @id @default(autoincrement())
+    assetId         Int            @map("asset_id")
     transactionHash String         @unique @map("transaction_hash")
     fromAddress     String         @map("from_address")
     toAddress       String         @map("to_address")
@@ -423,16 +426,16 @@ model WhaleTrade {
 
 // 13. USER_SUBSCRIPTIONS TABLE - User alert preferences
 model UserSubscription {
-    id               String        @id @default(uuid()) @db.Uuid
+    id               Int           @id @default(autoincrement())
     telegramUserId   BigInt        @map("telegram_user_id")
     telegramUsername String?       @map("telegram_username")
-    assetId          String?       @map("asset_id") @db.Uuid
+    assetId          Int?          @map("asset_id")
     alertTypes       String[]      @map("alert_types")
     minSeverity      AlertSeverity @default(MEDIUM) @map("min_severity")
     isActive         Boolean       @default(true) @map("is_active")
     createdAt        DateTime      @default(now()) @map("created_at") @db.Timestamptz
     updatedAt        DateTime      @updatedAt @map("updated_at") @db.Timestamptz
-    userId           String        @map("user_id") @db.Uuid
+    userId           Int           @map("user_id")
 
     // Relations
     asset Asset? @relation(fields: [assetId], references: [id], onDelete: Cascade)
@@ -445,10 +448,10 @@ model UserSubscription {
 
 // 14. INDICATOR TABLE - Technical indicator configurations
 model Indicator {
-    id            String  @id @default(uuid()) @db.Uuid
-    assetId       String  @map("asset_id") @db.Uuid
-    exchangeId    String? @map("exchange_id") @db.Uuid
-    tradingPairId String? @map("trading_pair_id") @db.Uuid
+    id            Int  @id @default(autoincrement())
+    assetId       Int  @map("asset_id")
+    exchangeId    Int? @map("exchange_id")
+    tradingPairId Int? @map("trading_pair_id")
 
     type      IndicatorType // e.g., RSI, MACD, BollingerBands
     timeframe IndicatorTimeframe // e.g., 1m, 5m, 1h, 1d
@@ -460,7 +463,7 @@ model Indicator {
     isActive Boolean @default(true) @map("is_active")
     isPublic Boolean @default(false) @map("is_public") // Shared indicator or user-defined?
 
-    createdBy String?  @map("created_by") @db.Uuid // Optional: userId if indicators are user-specific
+    createdBy Int?     @map("created_by") // Optional: userId if indicators are user-specific
     createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
     updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
@@ -481,8 +484,8 @@ model Indicator {
 
 // 15. INDICATOR_SNAPSHOT TABLE - Time-series data for technical indicators
 model IndicatorSnapshot {
-    id          String   @id @default(uuid()) @db.Uuid
-    indicatorId String   @map("indicator_id") @db.Uuid
+    id          Int      @id @default(autoincrement())
+    indicatorId Int      @map("indicator_id")
     timestamp   DateTime @db.Timestamptz // پایان کندل مربوطه
 
     value    Json // e.g., {"rsi": 71.2} or {"macd": 1.2, "signal": 0.8}

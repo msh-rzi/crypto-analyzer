@@ -28,7 +28,9 @@ export class TradingPairController implements OnModuleInit {
       const quoteAsset = await this.assetBase.findById(
         raw.target.toLowerCase(),
       );
-      const exchange = await this.exchangeBase.findById(raw.market.identifier);
+      const exchange = await this.exchangeBase.findBySymbol(
+        raw.market.identifier,
+      );
 
       if (baseAsset.data && quoteAsset.data && exchange.data) {
         this.createTradingPair({

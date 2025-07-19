@@ -8,6 +8,12 @@ export class CreateExchangeDto {
   @IsString()
   name: string;
 
+  @IsString()
+  description: string;
+
+  @IsString()
+  image: string;
+
   @IsOptional()
   @IsString()
   apiUrl: string;

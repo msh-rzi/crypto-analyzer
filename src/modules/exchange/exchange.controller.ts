@@ -3,6 +3,7 @@ import { ExchangeBaseService } from './services/exchange-base.service';
 import { CreateExchangeDto } from './dto/create-exchange.dto';
 import { Exchanges } from 'database/raw-data/exchanges';
 import { ConfigService } from '@nestjs/config';
+import { CoinGeckoService } from 'shared/services/CoinGeckoService';
 
 @Controller('ExchangeController')
 export class ExchangeController implements OnModuleInit {
@@ -10,23 +11,24 @@ export class ExchangeController implements OnModuleInit {
   constructor(
     private readonly base: ExchangeBaseService,
     private readonly configService: ConfigService,
+    private readonly coinGeckoService: CoinGeckoService,
   ) {}
 
-  onModuleInit() {
+  async onModuleInit() {
     const shouldInitData = this.configService.get<string>('INIT_EXCHANGES');
     if (shouldInitData === 'false') return;
 
-    const sortedExchangesByScoreRank = Exchanges.sort(
-      (a, b) => a.trust_score_rank - b.trust_score_rank,
-    );
+    const exchanges = await this.coinGeckoService.getExchanges();
 
-    sortedExchangesByScoreRank.forEach(e => {
+    exchanges.forEach(e => {
       this.createExchange({
         symbol: e.id,
         name: e.name,
+        image: e.image,
+        description: e.description,
         country: e.country,
-        makerFee: '0.0002',
-        takerFee: '0.00015',
+        makerFee: 'N/A',
+        takerFee: 'N/A',
         apiUrl: e.url,
       });
     });
